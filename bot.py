@@ -4,7 +4,6 @@ import requests
 import re
 import time
 import logging
-import threading
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -15,9 +14,6 @@ BOT_TOKEN = '8390506713:AAGKlZcg0IrG99FoNM890tB0W0gNs2tKuvs'
 CHANNEL_ID = '@reelsrazyob'
 
 bot = telebot.TeleBot(BOT_TOKEN)
-
-# Переменная для контроля работы бота
-bot_running = False
 
 def download_reel(reel_url):
     try:
@@ -233,22 +229,18 @@ def handle_reel_link(message):
         bot.reply_to(message, "Это не похоже на ссылку на Instagram Reel.")
 
 def safe_polling():
-    """Безопасный polling с обработкой 409 ошибки"""
-    global bot_running
-    
+    """Безопасный polling с обработкой ошибок"""
     while True:
         try:
-            if not bot_running:
-                bot_running = True
-                logger.info("🔄 Запускаем polling...")
-                bot.infinity_polling(timeout=60, long_polling_timeout=60, restart_on_change=True)
-                
+            logger.info("🔄 Запускаем polling...")
+            # Убираем restart_on_change и используем простой polling
+            bot.polling(none_stop=True, timeout=60, long_polling_timeout=60)
+            
         except Exception as e:
-            bot_running = False
             if "409" in str(e):
-                logger.warning("⚠️ Обнаружена 409 ошибка. Останавливаем текущий инстанс...")
-                logger.info("🔄 Перезапуск через 15 секунд...")
-                time.sleep(15)
+                logger.warning("⚠️ Обнаружена 409 ошибка. Ожидание 20 секунд...")
+                # При 409 ошибке ждем дольше
+                time.sleep(20)
             else:
                 logger.error(f"❌ Ошибка: {e}")
                 logger.info("🔄 Перезапуск через 10 секунд...")
@@ -257,20 +249,11 @@ def safe_polling():
 def start_bot():
     logger.info("🚀 Запускаем бота...")
     
-    # Даем время завершиться другим инстансам
-    time.sleep(5)
+    # Даем время завершиться другим инстансам (если есть)
+    logger.info("⏳ Ожидание 10 секунд перед запуском...")
+    time.sleep(10)
     
-    # Запускаем безопасный polling в отдельном потоке
-    polling_thread = threading.Thread(target=safe_polling, daemon=True)
-    polling_thread.start()
-    
-    # Главный поток просто ждет
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        logger.info("⏹️ Останавливаем бота...")
-        bot.stop_polling()
+    safe_polling()
 
 if __name__ == '__main__':
     start_bot()
