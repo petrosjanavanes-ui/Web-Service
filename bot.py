@@ -16,244 +16,67 @@ CHANNEL_ID = '@reelsrazyob'
 bot = telebot.TeleBot(BOT_TOKEN)
 
 def download_reel(reel_url):
+    """Упрощенная функция скачивания"""
     try:
-        logger.info(f"Пытаемся скачать рилс: {reel_url}")
-        
-        # Сначала пробуем метод с ddinstagram
-        result = download_via_ddinstagram(reel_url)
-        if result:
-            logger.info("Успешно скачано через ddinstagram")
-            return result
-        
-        # Если не сработало, пробуем ssstik.io
-        logger.info("ddinstagram не сработал, пробуем ssstik.io...")
-        result = download_via_ssstik(reel_url)
-        if result:
-            logger.info("Успешно скачано через ssstik.io")
-            return result
-        
-        # Если не сработало, пробуем snaptik.app
-        logger.info("ssstik.io не сработал, пробуем snaptik.app...")
-        result = download_via_snaptik(reel_url)
-        if result:
-            logger.info("Успешно скачано через snaptik.app")
-            return result
-            
-        logger.error("Все методы не сработали")
-        return None
-        
-    except Exception as e:
-        logger.error(f"Общая ошибка при скачивании: {e}")
-        return None
-
-def download_via_ddinstagram(reel_url):
-    """Метод с заменой на ddinstagram"""
-    try:
-        # Заменяем домен на ddinstagram
-        ddinstagram_url = reel_url.replace('www.instagram.com', 'www.ddinstagram.com')
-        logger.info(f"Пробуем ddinstagram URL: {ddinstagram_url}")
+        # Простая реализация через ddinstagram
+        dd_url = reel_url.replace('www.instagram.com', 'www.ddinstagram.com')
         
         session = requests.Session()
         session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         })
         
-        response = session.get(ddinstagram_url, timeout=30)
-        response.raise_for_status()
+        response = session.get(dd_url, timeout=30)
+        video_match = re.search(r'<video[^>]*src="([^"]+)"', response.text)
         
-        # Ищем видео
-        video_url_match = re.search(r'<video[^>]*src="([^"]+)"', response.text)
-        if video_url_match:
-            video_url = video_url_match.group(1)
-            
-            # Если URL относительный, делаем его абсолютным
+        if video_match:
+            video_url = video_match.group(1)
             if video_url.startswith('//'):
                 video_url = 'https:' + video_url
-            elif video_url.startswith('/'):
-                video_url = 'https://www.ddinstagram.com' + video_url
             
-            logger.info(f"Найдено видео: {video_url}")
-            
-            # Скачиваем видео
             video_response = session.get(video_url, stream=True, timeout=60)
-            video_response.raise_for_status()
+            filename = "reel_video.mp4"
             
-            filename = "reel_video_ddinstagram.mp4"
             with open(filename, 'wb') as f:
                 for chunk in video_response.iter_content(chunk_size=8192):
                     if chunk:
                         f.write(chunk)
             
-            if os.path.exists(filename) and os.path.getsize(filename) > 0:
-                logger.info(f"Видео успешно скачано, размер: {os.path.getsize(filename)} байт")
-                return filename
-        
-        return None
-        
-    except Exception as e:
-        logger.error(f"Ошибка в ddinstagram: {e}")
-        return None
-
-def download_via_ssstik(reel_url):
-    """Скачивание через ssstik.io"""
-    try:
-        session = requests.Session()
-        session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        })
-        
-        ssstik_url = "https://ssstik.io"
-        response = session.get(ssstik_url, timeout=30)
-        response.raise_for_status()
-        
-        token_match = re.search(r'name="tt" value="([^"]+)"', response.text)
-        if not token_match:
-            return None
-        
-        token = token_match.group(1)
-        
-        download_url = "https://ssstik.io/abc?url=dl"
-        data = {
-            "id": reel_url,
-            "locale": "en",
-            "tt": token
-        }
-        
-        response = session.post(download_url, data=data, timeout=30)
-        response.raise_for_status()
-        
-        video_url_match = re.search(r'href="(https[^"]+\.mp4[^"]*)"', response.text)
-        if not video_url_match:
-            return None
-        
-        video_url = video_url_match.group(1)
-        
-        video_response = session.get(video_url, stream=True, timeout=60)
-        video_response.raise_for_status()
-        
-        filename = "reel_video_ssstik.mp4"
-        with open(filename, 'wb') as f:
-            for chunk in video_response.iter_content(chunk_size=8192):
-                if chunk:
-                    f.write(chunk)
-        
-        if os.path.exists(filename) and os.path.getsize(filename) > 0:
             return filename
-        else:
-            return None
-            
-    except Exception as e:
-        logger.error(f"Ошибка в ssstik: {e}")
-        return None
-
-def download_via_snaptik(reel_url):
-    """Скачивание через snaptik.app"""
-    try:
-        session = requests.Session()
-        session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        })
-        
-        snaptik_url = "https://snaptik.app"
-        response = session.get(snaptik_url, timeout=30)
-        response.raise_for_status()
-        
-        token_match = re.search(r'name="token" value="([^"]+)"', response.text)
-        if not token_match:
-            return None
-        
-        token = token_match.group(1)
-        
-        api_url = "https://snaptik.app/abc2.php"
-        data = {
-            "url": reel_url,
-            "token": token
-        }
-        
-        response = session.post(api_url, data=data, timeout=30)
-        response.raise_for_status()
-        
-        video_url_match = re.search(r'"download_url":"([^"]+)"', response.text)
-        if video_url_match:
-            video_url = video_url_match.group(1).replace('\\', '')
-            
-            video_response = session.get(video_url, stream=True, timeout=60)
-            video_response.raise_for_status()
-            
-            filename = "reel_video_snaptik.mp4"
-            with open(filename, 'wb') as f:
-                for chunk in video_response.iter_content(chunk_size=8192):
-                    if chunk:
-                        f.write(chunk)
-            
-            if os.path.exists(filename) and os.path.getsize(filename) > 0:
-                return filename
-        
         return None
         
     except Exception as e:
-        logger.error(f"Ошибка в snaptik: {e}")
+        logger.error(f"Ошибка скачивания: {e}")
         return None
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    bot.reply_to(message, "Привет! Отправь мне ссылку на Instagram Reel, и я опубликую его в канале @reelsrazyob.")
+    bot.reply_to(message, "Привет! Отправь ссылку на Instagram Reel.")
 
 @bot.message_handler(func=lambda message: True)
 def handle_reel_link(message):
-    if 'instagram.com/reel/' in message.text or 'instagram.com/p/' in message.text:
-        processing_msg = bot.reply_to(message, "🔄 Скачиваю рилс...")
+    if 'instagram.com/reel/' in message.text:
+        msg = bot.reply_to(message, "🔄 Скачиваю...")
         
         video_path = download_reel(message.text)
         
-        if video_path and os.path.exists(video_path):
-            bot.edit_message_text(chat_id=message.chat.id, message_id=processing_msg.message_id, text="📤 Отправляю в канал...")
+        if video_path:
+            bot.edit_message_text("📤 Отправляю...", message.chat.id, msg.message_id)
             
             try:
                 with open(video_path, 'rb') as video:
                     bot.send_video(CHANNEL_ID, video, caption="Новый рилс! 📹")
-                bot.edit_message_text(chat_id=message.chat.id, message_id=processing_msg.message_id, text="✅ Рилес успешно опубликован в канале!")
+                bot.edit_message_text("✅ Опубликовано!", message.chat.id, msg.message_id)
             except Exception as e:
-                error_msg = f"❌ Ошибка при отправке: {e}"
-                bot.edit_message_text(chat_id=message.chat.id, message_id=processing_msg.message_id, text=error_msg)
+                bot.edit_message_text(f"❌ Ошибка: {e}", message.chat.id, msg.message_id)
             
             try:
                 os.remove(video_path)
             except:
                 pass
         else:
-            error_msg = "❌ Не удалось скачать видео. Проверьте ссылку."
-            bot.edit_message_text(chat_id=message.chat.id, message_id=processing_msg.message_id, text=error_msg)
-    else:
-        bot.reply_to(message, "Это не похоже на ссылку на Instagram Reel.")
-
-def safe_polling():
-    """Безопасный polling с обработкой ошибок"""
-    while True:
-        try:
-            logger.info("🔄 Запускаем polling...")
-            # Убираем restart_on_change и используем простой polling
-            bot.polling(none_stop=True, timeout=60, long_polling_timeout=60)
-            
-        except Exception as e:
-            if "409" in str(e):
-                logger.warning("⚠️ Обнаружена 409 ошибка. Ожидание 20 секунд...")
-                # При 409 ошибке ждем дольше
-                time.sleep(20)
-            else:
-                logger.error(f"❌ Ошибка: {e}")
-                logger.info("🔄 Перезапуск через 10 секунд...")
-                time.sleep(10)
-
-def start_bot():
-    logger.info("🚀 Запускаем бота...")
-    
-    # Даем время завершиться другим инстансам (если есть)
-    logger.info("⏳ Ожидание 10 секунд перед запуском...")
-    time.sleep(10)
-    
-    safe_polling()
+            bot.edit_message_text("❌ Не удалось скачать", message.chat.id, msg.message_id)
 
 if __name__ == '__main__':
-    start_bot()
+    logger.info("Бот запущен")
+    bot.infinity_polling()
